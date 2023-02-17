@@ -1,0 +1,135 @@
+%% file: cs341Lsp23-lec-wk4-machine-repr-instructions
+%% author: Jon David
+%% date: Thursday, February 9, 2023
+%% description:
+%%   a cool Beamer presentation for the first part of chapter 3.
+
+%% learning how to make cool Beamer presentations from this guy:
+%% https://latex-beamer.com/tutorials/overlays/
+
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+
+\usepackage{listings}
+\usepackage{cleveref}
+\usepackage{graphicx}
+
+%% https://www.overleaf.com/learn/latex/Beamer_Presentations%3A_A_Tutorial_for_Beginners_(Part_1)%E2%80%94Getting_Started
+
+\title{Lab4b: Machine Representation Lab}
+\author{VANESSA RODRIGUEZ}
+\date{2/17/23}
+
+\begin{document}
+
+\maketitle
+
+\section{Problem 1: general mov and operands}
+%% note to self: Practice Problem 3.2
+For each of the following lines of assembly language, determine the appropriate instruction suffix based on the operands. (For example, \texttt{mov} can be rewritten as \texttt{movb}, \texttt{movw}, \texttt{movl}, \texttt{movq}.)
+
+\begin{lstlisting}[language={[x86masm]assembler}]
+mov_ %eax, (%rsp)           ; l- data moved from register to memory. 4 bytes
+mov_ (%rax), %dx            ; w- register to memory. 2 bytes
+movl_ $0xFF, %bl             ; b- memory to register. 1 byte
+movl_ (%rsp, %rdx, 4), %dl   ; b- register to memory. 1 byte
+movl_ (%rdx), %rax           ; q- register to memory. 8 byte
+movl_ %dx, (%rax)            ; w- register to memory. 2 byte
+\end{lstlisting}
+
+\section{Problem 2: What's wrong with this line?}
+%% note to self: Practice Problem  3.3
+Each of the following lines of code generates an error message when we invoke the assembler. Explain what is wrong with each line.
+\begin{lstlisting}
+movb $0xF, (%ebx)          ; %ebx can not be used as an address register
+movl %rax, (%rsp)          ; Suffix and register id mismatch
+movw ($rax, 4(%rsp)        ; source and destination cannot be references for memory 
+movb %al, %sl              ; %sl is not a register
+movq %rax, $0x123          ; cannot be  destination
+movl %eax, %rdx            ; incorrect operand size
+movb %si, 8(%rbp)          ; suffix and register id mismatch
+\end{lstlisting}
+
+\newpage
+\section{Problem 3: C to assembly}
+%% note to self: Practice Problem 3.4
+Assume variables \texttt{sp} and \texttt{dp} are declared with types declared with \texttt{typedef}. We wish to use the appropriate pair of data movement instructions to implement the operation below.
+\begin{lstlisting}[language={C}]
+src_t *sp;    // dest_t and src_t are defined elsewhere,
+dest_t *dp;   // but their definitions don't matter for this problem.
+
+*dp = (dest_t) *sp;
+\end{lstlisting}
+
+Assume that the values of \texttt{sp} and \texttt{dp} are stored in registers \texttt{\%rdi} and \texttt{\%rsi}, respectively. For each entry in the table, show the two instructions that implement the specified data movement. The first instruction in the sequence should read from memory, do the appropriate conversion, and set the appropriate portion of register \texttt{\%rax}. In both cases, the portions may be \texttt{\%rax}, \texttt{\%eax}, \texttt{\%ax}, \texttt{\%al}, and they may differ from one another.
+
+Recall that when performing a cast that involves both a size change a a change in \textbf{signedness} in C, the operation should change the size first (Section 2.2.6).
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+$src\_t$ & $dest\_t$ & Instruction \\ \hline
+\texttt{long} & \texttt{long} & movq (\%rdi), \%rax  \\
+              &               & movq \%rax, (\%rsi) \\ \hline
+\texttt{char} & \texttt{int} &  movsbl (\%rdi), \%eax  \\ 
+              &              &  mov1 \%eax, (\%rsi) \\ \hline
+\texttt{char} & \texttt{unsigned} & movsb1 (\%rdi), \%eax \\ 
+              &                   & mov1 \%eax, (\%rsi) \\ \hline
+\texttt{unsigned char} & \texttt{long} & movzbl (\%rdi), \%eax \\
+                       &               & movq \%rax, (\%rsi) \\ \hline
+\texttt{int} & \texttt{char} & mov1 (\%rdi), \%eax \\
+             &               & movb \%al, (\%rsi) \\ \hline
+\texttt{unsigned} & \texttt{unsigned char} & mov1 (\%rdi) , \%eax \\
+                  &                        & movb \%al, (\%rsi) \\ \hline
+\texttt{char} & \texttt{short} & movsbw (\%rdi), \%ax \\
+              &                 & movw \%ax, (\%rsi) \\ \hline
+\hline
+\end{tabular}
+\caption{MOVS and MOVZ practice.}
+\label{tab:prob3}
+\end{table}
+
+\newpage
+\section{Problem 4: Assembly to C}
+You are given the following information. A function with prototype
+\begin{lstlisting}
+void decode1( long *xp, long *yp, long *zp );
+\end{lstlisting}
+
+is compiled into assembly code, yielding the following:
+\begin{lstlisting}[language={[x86masm]assembler}]
+; void decode1(long *xp, lonog *yp, long *zp)
+; xp in %rdi, yp in %rsi, zp in %rdx
+decode1:
+  movq (%rdi), %r8
+  movq (%rsi), %rcx
+  movq (%rdx), %rax
+  movq %r8, (%rsi)      ; hint: return type of decode1 is void
+  movq %rcx, (%rdx)     ;       so where does it go instead?
+  movq %rax, (%rdi)     ; hint: rax used for return value
+  ret
+\end{lstlisting}
+Parameters \texttt{xp}, \texttt{yp}, and \texttt{zp} are stored in registers \%rdi, \%rsi, and \%rdx, respectively. Write C code for \texttt{decode1} that will have an effect equivalent to the assembly code shown.
+
+Your code solution here:
+\begin{lstlisting}[language={C}]
+void decode1(long *xp, long *yp, long *zp) {
+ long x = *xp;
+ long y = *yp;
+ long z = *zp;
+
+ *yp = x;
+ *zp = y;
+ *xp = z;
+}
+
+\end{lstlisting}
+
+
+\section{References}
+\begin{itemize}
+    \item Bryant, R. and David R. O'Hallaron. (2016). Computer Systems: a Programmer's Perspective (3rd ed.). Pearson.
+\end{itemize}
+
+\end{document}
